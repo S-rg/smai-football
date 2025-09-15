@@ -2,6 +2,7 @@ from player import Player
 from ball import Ball
 from utils import euclidian_distance
 from itertools import combinations
+import copy
 
 directions = [i for i in range(0, 360, 45)]
 
@@ -23,13 +24,13 @@ default_posn_map = {
 possession_radius = 2.0
 min_player_sep = 1.0
 
-class state:
-    def __init__(self, home_team, away_team, ball, score_1, score_2, turn):
+class State:
+    def __init__(self, home_team, away_team, ball, score_home, score_away, turn):
         self.home_team = home_team
         self.away_team = away_team
         self.ball = ball
-        self.score_1 = score_1
-        self.score_2 = score_2
+        self.score_home = score_home
+        self.score_away = score_away
         self.max_x = 100
         self.max_y = 50
         self.turn = 1
@@ -39,9 +40,9 @@ class state:
         if len(self.home_team) != 11 or len(self.away_team) != 11:
             return False
         
-        if not (0 <= self.score) or not (0 <= self.score_2):
+        if self.score_home < 0 or self.score_away < 0:
             return False
-        
+
         for player in self.home_team + self.away_team:
             if not (0 <= player.x <= self.max_x) or not (0 <= player.y <= self.max_y):
                 return False
@@ -69,13 +70,13 @@ class state:
     def update_score(self):
         if self.goal_test():
             if self.ball.x <= 0:
-                self.score_2 += 1
+                self.score_away += 1
             elif self.ball.x >= self.max_x:
-                self.score_1 += 1
+                self.score_home += 1
             self.reset_positions()
 
 
-    def reset_positions(self):
+    def reset_positions(self, default_posn_map = default_posn_map):
         for i, pos in enumerate(default_posn_map["home_team"]):
             self.home_team[i].x, self.home_team[i].y = pos
             self.home_team[i].has_possession = False
@@ -85,7 +86,6 @@ class state:
             self.away_team[i].has_possession = False
 
         self.ball.x, self.ball.y = 50, 25
-        self.ball.vx, self.ball.vy = 0, 0
         self.set_possession()
 
     def visualise(self):
@@ -111,32 +111,49 @@ class state:
 
         
     def copy(self):
-        return state(
-            self.home_team[:],
-            self.away_team[:],
-            self.ball,
-            self.score_1,
-            self.score_2,
+        return State(
+            copy.deepcopy(self.home_team[:]),
+            copy.deepcopy(self.away_team[:]),
+            copy.deepcopy(self.ball),
+            self.score_home,
+            self.score_away,
             self.turn
         )
     
     def get_neighbours(self):
         neighbours = []
+        active_team = self.home_team if self.turn % 2 == 1 else self.away_team
 
-        team = self.home_team if self.turn % 2 == 1 else self.away_team
-        for player in range(len(team)):
+        for player_idx in range(len(active_team)):
             for direction in directions:
                 new_state = self.copy()
-                new_state.home_team[player].move(new_state.home_team[player].sprint_speed, direction)
+                new_active_team = new_state.home_team if self.turn % 2 == 1 else new_state.away_team
+                new_active_team[player_idx].move(new_active_team[player_idx].sprint_speed, direction)
                 new_state.turn += 1
+                
                 new_state.update_score()
+                new_state.set_possession()
+
                 if new_state.is_legal():
                     neighbours.append(new_state)
 
-                if new_state.home_team[player].has_possession:
+                if new_active_team[player_idx].has_possession:
                     for shot_direction in directions:
                         shot_state = new_state.copy()
-                        shot_state.home_team[player].shoot(shot_state.ball, shot_direction, shot_state.home_team[player].shot_speed)
+                        shot_active_team = shot_state.home_team if (self.turn + 1) % 2 == 1 else shot_state.away_team
+
+                        shot_active_team[player_idx].shoot(
+                            shot_state.ball,
+                            shot_direction,
+                            shot_active_team[player_idx].shot_speed
+                        )
+                        
                         shot_state.update_score()
+                        shot_state.set_possession()
+                        shot_state.turn += 1
+                        
                         if shot_state.is_legal():
                             neighbours.append(shot_state)
+
+        return neighbours
+    
