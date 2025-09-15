@@ -22,4 +22,3 @@ class Game:
     def show(self):
         fig = self.state.show()
         plt.show()    
-        

@@ -5,7 +5,7 @@ from itertools import combinations
 import copy
 import matplotlib.pyplot as plt
 
-directions = [i for i in range(0, 360, 45)]
+directions = [i for i in range(0, 360, 90)]
 
 default_posn_map = {
     "home_team": [
@@ -63,6 +63,8 @@ class State:
     
 
     def goal_test(self):
+        if self.score_home >= 1 or self.score_away >= 1: #in case reset_positions is called after goal, remove after testing
+            return True
         if self.ball.x <= 0 or self.ball.x >= self.max_x:
             if (self.max_y / 2 - 7.32 / 2) <= self.ball.y <= (self.max_y / 2 + 7.32 / 2):
                 return True
@@ -123,23 +125,40 @@ class State:
         return fig
 
     def set_possession(self):
-        team = self.home_team if self.turn % 2 == 1 else self.away_team
+        active_team = self.home_team if self.turn % 2 == 1 else self.away_team
+        other_team = self.away_team if self.turn % 2 == 1 else self.home_team
+
         closest = None
         min_dist = float('inf')
 
-        for player in range(len(team)):
-            dist = euclidian_distance(team[player].x, team[player].y, self.ball.x, self.ball.y)
+        for idx in range(len(active_team)):
+            dist = euclidian_distance(active_team[idx].x, active_team[idx].y, self.ball.x, self.ball.y)
             if dist < min_dist and dist <= possession_radius:
                 min_dist = dist
-                closest = player
+                closest = idx
+
+        if closest is None:
+            min_dist = float('inf')
+            for idx in range(len(other_team)):
+                dist = euclidian_distance(other_team[idx].x, other_team[idx].y, self.ball.x, self.ball.y)
+                if dist < min_dist and dist <= possession_radius:
+                    min_dist = dist
+                    closest = idx
+            if closest is not None:
+                active_team = other_team
 
         for p in self.home_team + self.away_team:
             p.has_possession = False
 
         if closest is not None:
-            team[closest].has_possession = True
+            active_team[closest].has_possession = True
 
-
+    def round_state(self, decimals=0):
+        for player in self.home_team + self.away_team:
+            player.x = round(player.x, decimals)
+            player.y = round(player.y, decimals)
+        self.ball.x = round(self.ball.x, decimals)
+        self.ball.y = round(self.ball.y, decimals)
         
     def copy(self):
         return State(
