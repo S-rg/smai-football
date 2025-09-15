@@ -4,8 +4,8 @@ from ball import Ball
 class Player:
     def __init__(
         self,
-        sprint_speed: int = 70,
-        shot_speed: int = 60,
+        sprint_speed: int = 10,
+        shot_speed: int = 20,
         is_keeper: bool = False,
         has_possession: bool = False,
         x: int = 0,

@@ -3,6 +3,7 @@ from ball import Ball
 from utils import euclidian_distance
 from itertools import combinations
 import copy
+import matplotlib.pyplot as plt
 
 directions = [i for i in range(0, 360, 45)]
 
@@ -33,11 +34,12 @@ class State:
         self.score_away = score_away
         self.max_x = 100
         self.max_y = 50
-        self.turn = 1
+        self.turn = turn
+        self.num_players_per_team = len(home_team)
         
 
     def is_legal(self):
-        if len(self.home_team) != 11 or len(self.away_team) != 11:
+        if len(self.home_team) != self.num_players_per_team or len(self.away_team) != self.num_players_per_team:
             return False
         
         if self.score_home < 0 or self.score_away < 0:
@@ -76,20 +78,49 @@ class State:
             self.reset_positions()
 
 
-    def reset_positions(self, default_posn_map = default_posn_map):
-        for i, pos in enumerate(default_posn_map["home_team"]):
+    def reset_positions(self, default_posn_map=default_posn_map):
+        for i, pos in enumerate(default_posn_map["home_team"][:self.num_players_per_team]):
             self.home_team[i].x, self.home_team[i].y = pos
             self.home_team[i].has_possession = False
 
-        for i, pos in enumerate(default_posn_map["away_team"]):
+        for i, pos in enumerate(default_posn_map["away_team"][:self.num_players_per_team]):
             self.away_team[i].x, self.away_team[i].y = pos
             self.away_team[i].has_possession = False
 
         self.ball.x, self.ball.y = 50, 25
         self.set_possession()
 
-    def visualise(self):
-        pass
+    def show(self):
+        fig, ax = plt.subplots(figsize=(10, 5))
+
+        ax.set_xlim(0, self.max_x)
+        ax.set_ylim(0, self.max_y)
+        ax.set_aspect('equal')
+        ax.set_facecolor('mediumseagreen')
+
+        ax.plot([self.max_x/2, self.max_x/2], [0, self.max_y], color='white', linewidth=2)
+
+        goal_width = 7.32
+        ax.plot([0, 0], [self.max_y/2 - goal_width/2, self.max_y/2 + goal_width/2], color='yellow', linewidth=5)
+        ax.plot([self.max_x, self.max_x], [self.max_y/2 - goal_width/2, self.max_y/2 + goal_width/2], color='yellow', linewidth=5)
+
+        home_x = [p.x for p in self.home_team]
+        home_y = [p.y for p in self.home_team]
+        ax.scatter(home_x, home_y, c='blue', s=100, label='Home Team')
+
+        away_x = [p.x for p in self.away_team]
+        away_y = [p.y for p in self.away_team]
+        ax.scatter(away_x, away_y, c='red', s=100, label='Away Team')
+
+        ax.scatter(self.ball.x, self.ball.y, c='black', s=50, marker='o', label='Ball')
+
+        for p in self.home_team + self.away_team:
+            if hasattr(p, 'has_possession') and p.has_possession:
+                ax.annotate('P', (p.x, p.y), color='gold', fontsize=14, fontweight='bold', ha='center', va='center')
+
+        ax.legend(loc='upper right')
+        ax.set_title(f'Score: Home {self.score_home} - Away {self.score_away} | Turn: {self.turn}')
+        return fig
 
     def set_possession(self):
         team = self.home_team if self.turn % 2 == 1 else self.away_team
