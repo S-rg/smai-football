@@ -6,19 +6,15 @@ from state import State
 import time
 from collections import deque
 
-def quantize(value, precision=1):
-    return round(value / precision) * precision
-
-
 def serialize_state(state):
-
     player_positions = tuple(
-        (quantize(p.x, 0.1), quantize(p.y, 0.1), p.has_possession)
+        (round(p.x), round(p.y))
         for p in state.home_team + state.away_team
     )
-    ball_pos = (quantize(state.ball.x, 0.1), quantize(state.ball.y, 0.1))
+    ball_pos = (round(state.ball.x), round(state.ball.y))
 
-    return (player_positions, ball_pos, state.turn, state.score_home, state.score_away)
+    return (player_positions, ball_pos, state.score_home, state.score_away)
+
 
 def bfs(initial_state):
     n = 0
@@ -39,6 +35,55 @@ def bfs(initial_state):
         neighbours = current_state.get_neighbours()
         for neighbor in neighbours:
             queue.append(neighbor)
+
+        n += 1
+        if n % 1000 == 0:
+            print(f"Explored {n} states, queue size: {len(queue)}, visited size: {len(visited)}")
+
+def dfs(initial_state):
+    n = 0
+    visited = set()
+    stack = [initial_state]
+
+    while stack:
+        current_state = stack.pop()
+
+        if current_state.goal_test():
+            return current_state
+        
+        state_key = serialize_state(current_state)
+        if state_key in visited:
+            continue
+        visited.add(state_key)
+
+        neighbours = current_state.get_neighbours()
+        for neighbor in neighbours:
+            stack.append(neighbor)
+
+        n += 1
+        if n % 1000 == 0:
+            print(f"Explored {n} states, stack size: {len(stack)}, visited size: {len(visited)}")
+
+def best_first_search(initial_state):
+    n = 0
+    visited = set()
+    queue = [(initial_state, initial_state.heuristic())]
+
+    while queue:
+        queue.sort(key=lambda x: x[1])
+        current_state, _ = queue.pop(0)
+
+        if current_state.goal_test():
+            return current_state
+        
+        state_key = serialize_state(current_state)
+        if state_key in visited:
+            continue
+        visited.add(state_key)
+
+        neighbours = current_state.get_neighbours()
+        for neighbor in neighbours:
+            queue.append((neighbor, neighbor.heuristic()))
 
         n += 1
         if n % 1000 == 0:
@@ -69,10 +114,9 @@ if __name__ == "__main__":
         'away_team': [(40, 10), (40, 20), (40, 25), (40, 30), (40, 40)]
     }
     game = Game(num_players_per_team=1, position_map=position_map)
-    # game.show()
 
     initial_state = game.state
-    result_state = bfs(initial_state)
+    result_state = best_first_search(initial_state)
 
     if result_state:
         print("GOAL STATE REACHED!")

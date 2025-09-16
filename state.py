@@ -185,7 +185,6 @@ class State:
         for player_idx in range(len(active_team)):
             player = active_team[player_idx]
 
-            # --- 1. Shooting neighbours (if player currently has possession) ---
             if player.has_possession:
                 for shot_direction in directions:
                     shot_state = self.copy()
@@ -206,7 +205,6 @@ class State:
                     if shot_state.is_legal():
                         neighbours.append(shot_state)
 
-            # --- 2. Movement neighbours ---
             for direction in directions:
                 new_state = self.copy()
                 new_active_team = (
@@ -225,3 +223,35 @@ class State:
                     neighbours.append(new_state)
 
         return neighbours
+
+
+    def heuristic(self):
+        if self.goal_test():
+            return float('inf')
+
+        active_team = self.home_team if self.turn % 2 == 1 else self.away_team
+        other_team = self.away_team if self.turn % 2 == 1 else self.home_team
+
+        possessing_player = None
+        for player in active_team:
+            if player.has_possession:
+                possessing_player = player
+                break
+
+        if possessing_player is None:
+            return 0
+
+        goal_x = 0 if self.turn % 2 == 1 else self.max_x
+        goal_y = self.max_y / 2
+
+        dist_to_goal = euclidian_distance(possessing_player.x, possessing_player.y, goal_x, goal_y)
+        dist_to_ball = euclidian_distance(possessing_player.x, possessing_player.y, self.ball.x, self.ball.y)
+
+        min_dist_other = float('inf')
+        for opponent in other_team:
+            dist = euclidian_distance(possessing_player.x, possessing_player.y, opponent.x, opponent.y)
+            if dist < min_dist_other:
+                min_dist_other = dist
+
+        heuristic_value = (self.max_x + self.max_y) - dist_to_goal + (possession_radius - dist_to_ball) + min_dist_other
+        return heuristic_value
