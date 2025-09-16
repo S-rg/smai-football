@@ -26,7 +26,7 @@ possession_radius = 2.0
 min_player_sep = 1.0
 
 class State:
-    def __init__(self, home_team, away_team, ball, score_home, score_away, turn):
+    def __init__(self, home_team, away_team, ball, score_home, score_away, turn, position_map=default_posn_map):
         self.home_team = home_team
         self.away_team = away_team
         self.ball = ball
@@ -36,6 +36,10 @@ class State:
         self.max_y = 50
         self.turn = turn
         self.num_players_per_team = len(home_team)
+        self.position_map = position_map
+
+        if position_map is None:
+            self.position_map = default_posn_map
         
 
     def is_legal(self):
@@ -80,7 +84,10 @@ class State:
             self.reset_positions()
 
 
-    def reset_positions(self, default_posn_map=default_posn_map):
+    def reset_positions(self, default_posn_map=None):
+        if default_posn_map is None:
+            default_posn_map = self.position_map if self.position_map is not None else default_posn_map
+
         for i, pos in enumerate(default_posn_map["home_team"][:self.num_players_per_team]):
             self.home_team[i].x, self.home_team[i].y = pos
             self.home_team[i].has_possession = False
@@ -122,7 +129,8 @@ class State:
 
         ax.legend(loc='upper right')
         ax.set_title(f'Score: Home {self.score_home} - Away {self.score_away} | Turn: {self.turn}')
-        return fig
+        
+        plt.show()
 
     def set_possession(self):
         active_team = self.home_team if self.turn % 2 == 1 else self.away_team
@@ -175,35 +183,45 @@ class State:
         active_team = self.home_team if self.turn % 2 == 1 else self.away_team
 
         for player_idx in range(len(active_team)):
+            player = active_team[player_idx]
+
+            # --- 1. Shooting neighbours (if player currently has possession) ---
+            if player.has_possession:
+                for shot_direction in directions:
+                    shot_state = self.copy()
+                    shot_active_team = (
+                        shot_state.home_team if shot_state.turn % 2 == 1 else shot_state.away_team
+                    )
+
+                    shot_active_team[player_idx].shoot(
+                        shot_state.ball,
+                        shot_direction,
+                        shot_active_team[player_idx].shot_speed
+                    )
+
+                    shot_state.update_score()
+                    shot_state.set_possession()
+                    shot_state.turn += 1
+
+                    if shot_state.is_legal():
+                        neighbours.append(shot_state)
+
+            # --- 2. Movement neighbours ---
             for direction in directions:
                 new_state = self.copy()
-                new_active_team = new_state.home_team if self.turn % 2 == 1 else new_state.away_team
-                new_active_team[player_idx].move(new_active_team[player_idx].sprint_speed, direction)
+                new_active_team = (
+                    new_state.home_team if self.turn % 2 == 1 else new_state.away_team
+                )
+
+                new_active_team[player_idx].move(
+                    new_active_team[player_idx].sprint_speed, direction
+                )
                 new_state.turn += 1
-                
+
                 new_state.update_score()
                 new_state.set_possession()
 
                 if new_state.is_legal():
                     neighbours.append(new_state)
 
-                if new_active_team[player_idx].has_possession:
-                    for shot_direction in directions:
-                        shot_state = new_state.copy()
-                        shot_active_team = shot_state.home_team if (self.turn + 1) % 2 == 1 else shot_state.away_team
-
-                        shot_active_team[player_idx].shoot(
-                            shot_state.ball,
-                            shot_direction,
-                            shot_active_team[player_idx].shot_speed
-                        )
-                        
-                        shot_state.update_score()
-                        shot_state.set_possession()
-                        shot_state.turn += 1
-                        
-                        if shot_state.is_legal():
-                            neighbours.append(shot_state)
-
         return neighbours
-    

@@ -41,21 +41,42 @@ def bfs(initial_state):
             queue.append(neighbor)
 
         n += 1
-        if n % 100 == 0:
+        if n % 1000 == 0:
             print(f"Explored {n} states, queue size: {len(queue)}, visited size: {len(visited)}")
+
+
+def print_all_neighbours(state):
+    neighbours = state.get_neighbours()
+    for i, neighbor in enumerate(neighbours):
+        print(f"Neighbour {i+1}:")
+        print(f"  Turn: {neighbor.turn}")
+        print(f"  Score: Home {neighbor.score_home} - Away {neighbor.score_away}")
+        print(f"  Player positions: {[ (p.x, p.y) for p in neighbor.home_team + neighbor.away_team ]}")
+        print(f"  Ball position: ({neighbor.ball.x}, {neighbor.ball.y})")
+        print(f"  Player with ball: {[ (p.x, p.y) for p in neighbor.home_team + neighbor.away_team if p.has_possession ]}")
+        print()
+
+        if neighbor.ball.x != 50 or neighbor.ball.y != 25:
+            print("Ball has moved from the center!")
+
+            break
 
     
 
 if __name__ == "__main__":
-    game = Game(num_players_per_team=5)
+    position_map = {
+        'home_team': [(50, 25), (50, 20), (50, 10), (50, 30), (50, 40)],
+        'away_team': [(40, 10), (40, 20), (40, 25), (40, 30), (40, 40)]
+    }
+    game = Game(num_players_per_team=1, position_map=position_map)
     # game.show()
 
     initial_state = game.state
     result_state = bfs(initial_state)
 
     if result_state:
-        print("Goal state found!")
-        print(f"Score: Home {result_state.score_home} - Away {result_state.score_away}")
-        result_state.show()
+        print("GOAL STATE REACHED!")
     else:
         print("No goal state found.")
+
+    result_state.show()
